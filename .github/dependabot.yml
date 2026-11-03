@@ -3,14 +3,28 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+  # Major versions (React, TypeScript, ESLint, Next.js, …) are upgraded deliberately with an ADR or
+  # a tracked task, not automatically: their peer constraints break unattended updates.
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: uv
     directory: /apps/api
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: docker
     directories: [/apps/api, /apps/web, /services/sandbox]
     schedule: { interval: weekly }

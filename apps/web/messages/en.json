@@ -1,0 +1,74 @@
+{
+  "app": {
+    "name": "OS by AS",
+    "tagline": "One Operating System for the Entire Education Journey."
+  },
+  "landing": {
+    "eyebrow": "Education Operating System",
+    "description": "ERP, learning, examinations, campus life and careers for every institution in your group, in one secure platform.",
+    "signInSoon": "Sign-in arrives in Phase 3",
+    "openShell": "Preview the workspace",
+    "pillars": {
+      "institutional": "Institutional ERP",
+      "academics": "Academics and LMS",
+      "exams": "Examinations",
+      "careers": "Careers and campus life"
+    }
+  },
+  "nav": {
+    "main": "Main navigation",
+    "home": "Home",
+    "status": "System status",
+    "search": "Search",
+    "notifications": "Alerts",
+    "profile": "Profile",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "breadcrumb": "Breadcrumb",
+    "skipToContent": "Skip to content"
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Search pages and actions…",
+    "empty": "No results found.",
+    "groupNavigation": "Go to",
+    "groupActions": "Actions",
+    "toggleTheme": "Toggle light / dark theme",
+    "shortcut": "Ctrl K"
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "comingSoon": {
+    "notificationsTitle": "Notifications",
+    "notificationsBody": "Your alerts and OS Mail will appear here. The notification engine arrives in Phase 6.",
+    "profileTitle": "Your profile",
+    "profileBody": "Sign-in, profile and security settings arrive in Phase 3 and Phase 4."
+  },
+  "home": {
+    "title": "Welcome to OS by AS",
+    "description": "This is the platform shell. Modules appear here phase by phase: identity next, then configuration, academics and more.",
+    "viewStatus": "View system status"
+  },
+  "status": {
+    "title": "System status",
+    "description": "Live health of the services OS by AS depends on.",
+    "refresh": "Refresh",
+    "overallOk": "All systems operational",
+    "overallDegraded": "Some services are unavailable",
+    "errorTitle": "Couldn't reach the API",
+    "errorBody": "The status service did not respond. Check that the API is running, then try again.",
+    "retry": "Try again",
+    "latency": "{ms} ms",
+    "state": { "ok": "Operational", "down": "Down" },
+    "reason": { "timeout": "Timed out", "unavailable": "Unavailable" },
+    "checks": {
+      "database": "Database",
+      "redis": "Cache and queues",
+      "storage": "File storage",
+      "identity": "Identity (sign-in)"
+    }
+  }
+}

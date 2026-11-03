@@ -1,0 +1,10 @@
+pnpm-lock.yaml
+node_modules
+.next
+apps/api
+services
+docs
+*.md
+infra/keycloak
+playwright-report
+test-results

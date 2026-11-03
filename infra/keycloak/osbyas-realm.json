@@ -1,0 +1,9 @@
+{
+  "realm": "osbyas",
+  "enabled": true,
+  "displayName": "OS by AS",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "bruteForceProtected": true,
+  "organizationsEnabled": true
+}

@@ -1,0 +1,142 @@
+# OS by AS — local development stack. `make dev` from the repo root.
+# All credentials come from ../.env (see .env.example). Development values only.
+name: osbyas
+
+x-healthcheck: &hc
+  interval: 5s
+  timeout: 3s
+  retries: 30
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      <<: *hc
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+
+  redis:
+    image: redis:7
+    ports: ["${REDIS_PORT:-6379}:6379"]
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "redis-cli", "ping"]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports: ["${MINIO_PORT:-9000}:9000", "${MINIO_CONSOLE_PORT:-9001}:9001"]
+    volumes: [miniodata:/data]
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "mc", "ready", "local"]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on: { minio: { condition: service_healthy } }
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+    entrypoint: >
+      sh -c "mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
+             mc mb --ignore-existing local/$$S3_BUCKET &&
+             mc anonymous set none local/$$S3_BUCKET"
+
+  keycloak:
+    image: keycloak/keycloak:26.2
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
+    ports: ["${KEYCLOAK_PORT:-8080}:8080"]
+    volumes: ["./keycloak/osbyas-realm.json:/opt/keycloak/data/import/osbyas-realm.json:ro"]
+    depends_on: { postgres: { condition: service_healthy } }
+    healthcheck:
+      <<: *hc
+      retries: 60
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3",
+        ]
+
+  mailpit:
+    image: axllent/mailpit:v1.24
+    ports: ["${MAILPIT_SMTP_PORT:-1025}:1025", "${MAILPIT_UI_PORT:-8025}:8025"]
+    healthcheck:
+      <<: *hc
+      test: ["CMD", "/mailpit", "readyz"]
+
+  api:
+    build: { context: ../apps/api }
+    environment:
+      ENV: development
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      OIDC_ISSUER_URL: http://keycloak:8080/realms/osbyas
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    ports: ["${API_PORT:-8000}:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      keycloak: { condition: service_healthy }
+
+  sandbox:
+    build: { context: ../services/sandbox }
+    ports: ["${SANDBOX_PORT:-8100}:8100"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      <<: *hc
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/health/live')",
+        ]
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports: ["${WEB_PORT:-3000}:3000"]
+    depends_on: { api: { condition: service_healthy } }
+    healthcheck:
+      <<: *hc
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+
+volumes:
+  pgdata:
+  miniodata:

@@ -14,17 +14,23 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports: ["${POSTGRES_PORT:-5432}:5432"]
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./postgres/00-roles.sh:/docker-entrypoint-initdb.d/00-roles.sh:ro
     healthcheck:
       <<: *hc
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
 
   redis:
     image: redis:7
-    ports: ["${REDIS_PORT:-6379}:6379"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    ports: ["127.0.0.1:${REDIS_PORT:-6379}:6379"]
     healthcheck:
       <<: *hc
       test: ["CMD", "redis-cli", "ping"]
@@ -36,7 +42,7 @@ services:
     environment:
       RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
       RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
-    ports: ["${STORAGE_PORT:-9000}:9000"]
+    ports: ["127.0.0.1:${STORAGE_PORT:-9000}:9000"]
     volumes: [storagedata:/data]
     healthcheck:
       <<: *hc
@@ -47,6 +53,7 @@ services:
     image: osbyas-api
     command: ["python", "-m", "scripts.ensure_bucket"]
     environment:
+      ENV: development
       S3_ENDPOINT_URL: http://storage:9000
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
@@ -62,11 +69,11 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
       KC_HTTP_PORT: "8080"
-    ports: ["${KEYCLOAK_PORT:-8080}:8080"]
+    ports: ["127.0.0.1:${KEYCLOAK_PORT:-8080}:8080"]
     volumes: ["./keycloak/osbyas-realm.json:/opt/keycloak/data/import/osbyas-realm.json:ro"]
     depends_on: { postgres: { condition: service_healthy } }
     healthcheck:
@@ -80,7 +87,7 @@ services:
 
   mailpit:
     image: axllent/mailpit:v1.24
-    ports: ["${MAILPIT_SMTP_PORT:-1025}:1025", "${MAILPIT_UI_PORT:-8025}:8025"]
+    ports: ["127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025", "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"]
     healthcheck:
       <<: *hc
       test: ["CMD", "/mailpit", "readyz"]
@@ -90,28 +97,37 @@ services:
     image: osbyas-api
     environment:
       ENV: development
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://osbyas_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://osbyas_migrator:${MIGRATOR_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SANDBOX_URL: http://sandbox:8100
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       S3_ENDPOINT_URL: http://storage:9000
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
       OIDC_ISSUER_URL: http://keycloak:8080/realms/osbyas
       CORS_ORIGINS: '["http://localhost:3000"]'
-    ports: ["${API_PORT:-8000}:8000"]
+    ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       storage-init: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
+    networks: [default, sandbox]
 
+  # Untrusted code runs here from Phase 16. No published port, no route to data services:
+  # it sits only on an internal network shared with the API.
   sandbox:
     build: { context: ../services/sandbox }
     image: osbyas-sandbox
-    ports: ["${SANDBOX_PORT:-8100}:8100"]
+    networks: [sandbox]
     read_only: true
+    tmpfs: ["/tmp:size=64m,noexec,nosuid"]
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
     healthcheck:
       <<: *hc
       test:
@@ -129,7 +145,7 @@ services:
     image: osbyas-web
     environment:
       API_INTERNAL_URL: http://api:8000
-    ports: ["${WEB_PORT:-3000}:3000"]
+    ports: ["127.0.0.1:${WEB_PORT:-3000}:3000"]
     depends_on: { api: { condition: service_healthy } }
     healthcheck:
       <<: *hc
@@ -140,6 +156,11 @@ services:
           "-e",
           "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
+
+networks:
+  default:
+  sandbox:
+    internal: true
 
 volumes:
   pgdata:

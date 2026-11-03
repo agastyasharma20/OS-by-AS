@@ -27,7 +27,7 @@ async def slow() -> None:
 def install(app: FastAPI, probes: dict[str, Probe], timeout: float = 2.0) -> None:
     app.dependency_overrides[get_probes] = lambda: probes
     app.dependency_overrides[get_settings] = lambda: Settings(
-        env="test", health_check_timeout_seconds=timeout
+        env="test", health_check_timeout_seconds=timeout, health_cache_seconds=0
     )
 
 
@@ -92,3 +92,21 @@ async def test_liveness_never_touches_dependencies(app: FastAPI, client: httpx.A
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert called is False
+
+
+async def test_results_are_cached_to_prevent_probe_amplification(
+    app: FastAPI, client: httpx.AsyncClient
+) -> None:
+    calls = 0
+
+    async def counting() -> None:
+        nonlocal calls
+        calls += 1
+
+    app.dependency_overrides[get_probes] = lambda: {"database": counting}
+    app.dependency_overrides[get_settings] = lambda: Settings(env="test", health_cache_seconds=30)
+    for _ in range(5):
+        response = await client.get("/api/v1/health")
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+    assert calls == 1

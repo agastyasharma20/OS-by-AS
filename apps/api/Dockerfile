@@ -4,8 +4,12 @@ RUN pip install --no-cache-dir uv==0.11.32
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
-COPY . .
-RUN useradd --system --uid 10001 app && chown -R app /app
+# Only runtime files; code stays root-owned so the app user cannot modify it.
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY app ./app
+COPY scripts ./scripts
+RUN useradd --system --uid 10001 app
 USER app
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000

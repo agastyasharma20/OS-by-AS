@@ -44,6 +44,15 @@ See `docs/adr/`. Highlights:
 - **Modules** (ADR 0002): modules talk through `service.py` only; shared concerns live in `app/core`.
 - **Hosting** (ADR 0006): containers everywhere; AWS Mumbai in production.
 
+## Database roles
+| Role | Used by | Rights |
+|---|---|---|
+| `osbyas_migrator` | Alembic only (`MIGRATION_DATABASE_URL`) | Owns schema objects |
+| `osbyas_app` | API at runtime (`DATABASE_URL`) | DML only; no superuser, no BYPASSRLS, owns nothing |
+| `keycloak` | Keycloak | Owns the separate `keycloak` database |
+
+The cluster superuser only bootstraps these roles (`infra/postgres/00-roles.sh`).
+
 ## Request flow (from Phase 3)
 1. Browser → `web` (session cookie, CSRF token).
 2. `web` BFF → `api` with the user's access token; tenant from host.

@@ -1,6 +1,6 @@
 # Phase 1 — Foundation and architecture: plan
 
-Status: **awaiting product-owner approval**. Roadmap: `docs/ROADMAP.md` → Phase 1. Req §11 (UI shell), §13 (API style).
+Status: **approved 2026-11-03 and built**. Deviation: MinIO replaced by RustFS (ADR 0007). Roadmap: `docs/ROADMAP.md` → Phase 1. Req §11 (UI shell), §13 (API style).
 
 ## User stories
 - As a **developer**, I clone the repo, run `make dev`, and every service starts with no manual steps.

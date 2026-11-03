@@ -1,3 +1,8 @@
+import os
+
+# Settings default to production (fail closed); the test suite opts out explicitly.
+os.environ.setdefault("ENV", "test")
+
 from collections.abc import AsyncIterator
 
 import httpx

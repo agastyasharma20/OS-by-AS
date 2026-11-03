@@ -9,7 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 Environment = Literal["development", "test", "production"]
 
 # Values that are only acceptable on a developer machine. Production refuses to start with them.
-DEV_ONLY_SECRETS = frozenset({"", "changeme", "osbyas", "minioadmin", "dev-only-change-me"})
+DEV_ONLY_SECRETS = frozenset(
+    {"", "changeme", "osbyas", "minioadmin", "rustfsadmin", "osbyas-dev", "osbyas-dev-secret"}
+)
 
 
 class Settings(BaseSettings):
@@ -24,8 +26,8 @@ class Settings(BaseSettings):
     s3_endpoint_url: str | None = "http://localhost:9000"
     s3_region: str = "ap-south-1"
     s3_bucket: str = "osbyas-private"
-    s3_access_key: SecretStr = SecretStr("minioadmin")
-    s3_secret_key: SecretStr = SecretStr("minioadmin")
+    s3_access_key: SecretStr = SecretStr("osbyas-dev")
+    s3_secret_key: SecretStr = SecretStr("osbyas-dev-secret")
 
     # OIDC issuer, e.g. http://localhost:8080/realms/osbyas
     oidc_issuer_url: str = "http://localhost:8080/realms/osbyas"

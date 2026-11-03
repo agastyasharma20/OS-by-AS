@@ -22,7 +22,7 @@ def test_production_refuses_development_defaults() -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("s3_secret_key", "minioadmin"),
+        ("s3_secret_key", "osbyas-dev-secret"),
         ("database_url", "postgresql+asyncpg://osbyas:osbyas@localhost:5432/osbyas"),
         ("cors_origins", ["http://insecure.example"]),
     ],

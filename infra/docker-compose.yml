@@ -29,29 +29,30 @@ services:
       <<: *hc
       test: ["CMD", "redis-cli", "ping"]
 
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    command: server /data --console-address ":9001"
+  # S3-compatible object storage for development. MinIO's community images were withdrawn from
+  # Docker Hub in 2025, so we use RustFS (Apache-2.0). Production uses AWS S3 (ADR 0006).
+  storage:
+    image: rustfs/rustfs:1.0.4
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
-    ports: ["${MINIO_PORT:-9000}:9000", "${MINIO_CONSOLE_PORT:-9001}:9001"]
-    volumes: [miniodata:/data]
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+    ports: ["${STORAGE_PORT:-9000}:9000"]
+    volumes: [storagedata:/data]
     healthcheck:
       <<: *hc
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
 
-  minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
-    depends_on: { minio: { condition: service_healthy } }
+  storage-init:
+    build: { context: ../apps/api }
+    image: osbyas-api
+    command: ["python", "-m", "scripts.ensure_bucket"]
     environment:
+      S3_ENDPOINT_URL: http://storage:9000
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
-    entrypoint: >
-      sh -c "mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
-             mc mb --ignore-existing local/$$S3_BUCKET &&
-             mc anonymous set none local/$$S3_BUCKET"
+    depends_on: { storage: { condition: service_healthy } }
+    restart: "no"
 
   keycloak:
     image: keycloak/keycloak:26.2
@@ -86,11 +87,12 @@ services:
 
   api:
     build: { context: ../apps/api }
+    image: osbyas-api
     environment:
       ENV: development
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
-      S3_ENDPOINT_URL: http://minio:9000
+      S3_ENDPOINT_URL: http://storage:9000
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET: ${S3_BUCKET}
@@ -100,11 +102,12 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
-      minio-init: { condition: service_completed_successfully }
+      storage-init: { condition: service_completed_successfully }
       keycloak: { condition: service_healthy }
 
   sandbox:
     build: { context: ../services/sandbox }
+    image: osbyas-sandbox
     ports: ["${SANDBOX_PORT:-8100}:8100"]
     read_only: true
     cap_drop: [ALL]
@@ -123,6 +126,7 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+    image: osbyas-web
     environment:
       API_INTERNAL_URL: http://api:8000
     ports: ["${WEB_PORT:-3000}:3000"]
@@ -139,4 +143,4 @@ services:
 
 volumes:
   pgdata:
-  miniodata:
+  storagedata:

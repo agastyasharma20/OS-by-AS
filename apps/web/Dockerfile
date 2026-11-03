@@ -1,5 +1,5 @@
 # Build from the repo root: docker build -f apps/web/Dockerfile .
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm install -g pnpm@10.28.0
 WORKDIR /repo
@@ -12,7 +12,7 @@ COPY apps/web apps/web
 COPY packages packages
 RUN pnpm --filter @osbyas/web build
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./

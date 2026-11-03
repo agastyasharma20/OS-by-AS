@@ -7,6 +7,17 @@ module are in `docs/REQUIREMENTS.md` (section numbers given as "Req §").
 Rules: do phases in order; a phase may start only when the previous phase's exit
 criteria pass. Milestone B ends with a **pilot gate**: real users in one class section.
 
+## Ordering adjustments (approved 2026-11-03)
+- Phase 2 also delivers: tenant resolution (subdomain, later cross-checked with the token's organization claim),
+  a minimal append-only `audit_event` table + writer, and privacy fields (consent, minor flag, guardian consent,
+  retention class) on person records. Phase 5 extends audit; it does not replace it.
+- Phase 3 seeds role templates (as data) so MFA/rotation can target HOD, Director/Dean, COE, etc. Phase 5 builds
+  the full permission/scope engine on the same tables.
+- Phase 4 sends login alerts through a minimal email sender; Phase 6 moves it onto the notification engine.
+- Phase 6 adds **OS Mail**: internal inbox/messaging between users (threads, attachments via file service,
+  circulars to groups/roles, read status, audit). Outbound email only for people not signed in (reset, alerts, guardians).
+- Privacy (DPDP) is designed in from Phase 2 and Phase 8; Phase 27 is a review, not the first look.
+
 ---
 
 ## Milestone A — Platform core

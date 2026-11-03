@@ -53,7 +53,12 @@ export function ShellProvider({ children }: { children: ReactNode }) {
       }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Signals that keyboard shortcuts are live (used by end-to-end tests and monitoring).
+    document.documentElement.dataset.shellReady = "true";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      delete document.documentElement.dataset.shellReady;
+    };
   }, []);
 
   const value = useMemo(

@@ -15,7 +15,7 @@ You are building a real, production-oriented product phase by phase, not a proto
 ## Stack (change only via an ADR)
 - Web: Next.js (App Router) + TypeScript + Tailwind + shadcn/ui — `apps/web`
 - API: Python 3.12 + FastAPI + Pydantic v2 + SQLAlchemy 2 + Alembic — `apps/api`
-- DB: PostgreSQL 16 + pgvector, Row-Level Security on `tenant_id`; Redis; S3/MinIO
+- DB: PostgreSQL 16 + pgvector, Row-Level Security on `tenant_id`; Redis; S3 (RustFS in dev, ADR 0007)
 - Identity: Keycloak (OIDC, passkeys/WebAuthn, TOTP). Never hand-roll crypto or password hashing.
 - Jobs: Celery/Dramatiq on Redis. Code execution: `services/sandbox` (isolated), never `apps/api`.
 - AI: all model calls go through `apps/api/app/core/ai_gateway` — nowhere else.

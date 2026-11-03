@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: make check (lint, typecheck, tests, migrations, client drift, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: make env install
+      - run: make check
+
+  stack:
+    name: make dev smoke + e2e (390px / 1440px)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Start every service from a clean clone
+        run: make dev
+      - name: Health reports every dependency as ok
+        run: |
+          body=$(curl -fsS http://localhost:8000/api/v1/health)
+          echo "$body"
+          echo "$body" | jq -e '.status == "ok" and (.checks | keys == ["database","identity","redis","storage"]) and all(.checks[]; .status == "ok")'
+          curl -fsS http://localhost:3000/ -o /dev/null
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @osbyas/web exec playwright install --with-deps chromium
+      - run: make e2e
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: |
+            apps/web/e2e/screenshots
+            apps/web/playwright-report
+          retention-days: 14
+      - if: failure()
+        run: docker compose --env-file .env -f infra/docker-compose.yml logs --no-color

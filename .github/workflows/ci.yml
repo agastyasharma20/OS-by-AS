@@ -53,7 +53,7 @@ jobs:
       - run: pnpm --filter @osbyas/web exec playwright install --with-deps chromium
       - run: make e2e
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-screenshots
           path: |
